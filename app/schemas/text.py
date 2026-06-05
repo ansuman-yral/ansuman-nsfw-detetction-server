@@ -1,6 +1,11 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TextDetectRequest(BaseModel):
-    text: str = Field(min_length=1)
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{"text": "A cinematic dance video on a beach at sunset."}],
+        }
+    )
 
+    text: str = Field(min_length=1)

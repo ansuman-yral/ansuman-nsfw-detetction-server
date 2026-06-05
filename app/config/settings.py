@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", ".env.offchain-fetched"),
+        env_file=(".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     kvrocks_port: int = Field(default=6379, alias="KVROCKS_PORT")
     kvrocks_password: SecretStr | None = Field(default=None, repr=False, alias="KVROCKS_PASSWORD")
     kvrocks_tls_enabled: bool = Field(default=False, alias="KVROCKS_TLS_ENABLED")
-    kvrocks_cluster_enabled: bool = Field(default=False, alias="KVROCKS_CLUSTER_ENABLED")
+    kvrocks_cluster_enabled: bool = Field(default=True, alias="KVROCKS_CLUSTER_ENABLED")
     kvrocks_ssl_ca_cert: str | None = Field(default=None, alias="KVROCKS_SSL_CA_CERT")
     kvrocks_ssl_client_cert: str | None = Field(default=None, alias="KVROCKS_SSL_CLIENT_CERT")
     kvrocks_ssl_client_key: str | None = Field(default=None, alias="KVROCKS_SSL_CLIENT_KEY")
