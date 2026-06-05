@@ -10,12 +10,24 @@ router = APIRouter(tags=["health"])
 ReadinessDep = Annotated[ReadinessService, Depends(get_readiness_service)]
 
 
-@router.get("/health")
+@router.get(
+    "/health",
+    summary="Liveness check",
+    description="Unauthenticated liveness endpoint. Returns `ok` if the API process is running.",
+)
 async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@router.get("/ready", response_model=ReadinessResponse)
+@router.get(
+    "/ready",
+    response_model=ReadinessResponse,
+    summary="Readiness check",
+    description=(
+        "Unauthenticated readiness endpoint. Checks configured dependencies such as PostgreSQL, KVRocks, "
+        "ClickHouse, GPU config, and video tooling availability."
+    ),
+)
 async def ready(
     response: Response,
     readiness_service: ReadinessDep,

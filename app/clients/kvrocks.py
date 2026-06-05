@@ -3,16 +3,18 @@ import os
 from pathlib import Path
 
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
 
 from app.config.settings import Settings
 
 
-def create_kvrocks_client(settings: Settings) -> Redis:
+def create_kvrocks_client(settings: Settings) -> Redis | RedisCluster:
     ssl_ca_data = _pem_data(settings.kvrocks_ssl_ca_cert)
     ssl_ca_certs = None if ssl_ca_data else settings.kvrocks_ssl_ca_cert
     ssl_certfile = _pem_file(settings.kvrocks_ssl_client_cert)
     ssl_keyfile = _pem_file(settings.kvrocks_ssl_client_key)
-    return Redis(
+    client_cls = RedisCluster if settings.kvrocks_cluster_enabled else Redis
+    return client_cls(
         host=settings.kvrocks_host,
         port=settings.kvrocks_port,
         password=settings.kvrocks_password.get_secret_value() if settings.kvrocks_password else None,

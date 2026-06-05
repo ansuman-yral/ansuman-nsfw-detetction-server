@@ -10,7 +10,14 @@ router = APIRouter(prefix="/images", tags=["images"])
 ImageServiceDep = Annotated[ImageDetectionService, Depends(get_image_detection_service)]
 
 
-@router.post("/detect-url")
+@router.post(
+    "/detect-url",
+    summary="Classify an image URL",
+    description=(
+        "Protected stateless endpoint. Downloads/classifies one image URL through the configured GPU model. "
+        "It does not write PostgreSQL, ClickHouse, KVRocks, or storage state."
+    ),
+)
 async def detect_image_url(
     request: ImageUrlDetectRequest,
     image_service: ImageServiceDep,
@@ -18,7 +25,14 @@ async def detect_image_url(
     return await image_service.detect_url(request.image_url)
 
 
-@router.post("/detect-base64")
+@router.post(
+    "/detect-base64",
+    summary="Classify a base64 image",
+    description=(
+        "Protected stateless endpoint. Classifies one base64-encoded image through the configured GPU model. "
+        "It does not write PostgreSQL, ClickHouse, KVRocks, or storage state."
+    ),
+)
 async def detect_image_base64(
     request: ImageBase64DetectRequest,
     image_service: ImageServiceDep,

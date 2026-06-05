@@ -15,7 +15,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate live storage integrations with cleanup-safe test IDs.")
     parser.add_argument("--postgres", action="store_true", help="Validate PostgreSQL with insert/query/delete.")
     parser.add_argument("--kvrocks", action="store_true", help="Validate KVRocks with set/get/delete.")
-    parser.add_argument("--clickhouse", action="store_true", help="Validate ClickHouse with insert/query/delete mutations.")
+    parser.add_argument(
+        "--clickhouse",
+        action="store_true",
+        help="Validate ClickHouse with insert/query/delete mutations.",
+    )
     parser.add_argument("--storj-config", action="store_true", help="Validate Storj interface config is present only.")
     parser.add_argument("--all-safe", action="store_true", help="Run all non-Storj-move validations.")
     return parser.parse_args()

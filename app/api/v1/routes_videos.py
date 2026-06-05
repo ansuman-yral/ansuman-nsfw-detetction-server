@@ -12,7 +12,17 @@ router = APIRouter(prefix="/videos", tags=["videos"])
 QueueServiceDep = Annotated[QueueService, Depends(get_queue_service)]
 
 
-@router.post("/detect", response_model=VideoDetectResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/detect",
+    response_model=VideoDetectResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Enqueue video NSFW detection",
+    description=(
+        "Protected internal endpoint. Validates the signed request, stores the video job in the durable queue, "
+        "and returns `202 Accepted`. Classification happens asynchronously in workers.\n\n"
+        "Required HMAC headers: `X-Yral-Service`, `X-Yral-Timestamp`, `X-Yral-Nonce`, `X-Yral-Signature`."
+    ),
+)
 async def detect_video(
     request: VideoDetectRequest,
     queue_service: QueueServiceDep,
@@ -26,7 +36,15 @@ async def detect_video(
     )
 
 
-@router.get("/{video_id}/status", response_model=VideoStatusResponse)
+@router.get(
+    "/{video_id}/status",
+    response_model=VideoStatusResponse,
+    summary="Get video detection status",
+    description=(
+        "Protected internal endpoint. Returns the latest known queue/classification state for a video. "
+        "For this GET request, sign an empty raw body when computing the HMAC canonical request."
+    ),
+)
 async def video_status(
     video_id: str,
     queue_service: QueueServiceDep,

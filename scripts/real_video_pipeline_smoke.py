@@ -24,7 +24,6 @@ from app.services.frame_extraction_service import FrameExtractionService, downlo
 from app.utils.file_cleanup import cleanup_dir
 from app.utils.redaction import redact_url
 
-
 URL_PATTERN = re.compile(r"https://link\.storjshare\.io/[^\])\s]+?\.mp4")
 
 

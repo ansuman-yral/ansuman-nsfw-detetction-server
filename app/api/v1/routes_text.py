@@ -10,7 +10,13 @@ router = APIRouter(prefix="/text", tags=["text"])
 TextServiceDep = Annotated[TextDetectionService, Depends(get_text_detection_service)]
 
 
-@router.post("/detect")
+@router.post(
+    "/detect",
+    summary="Classify text prompt safety",
+    description=(
+        "Protected stateless endpoint. Classifies a video-generation text prompt using "
+    ),
+)
 async def detect_text(
     request: TextDetectRequest,
     text_service: TextServiceDep,
