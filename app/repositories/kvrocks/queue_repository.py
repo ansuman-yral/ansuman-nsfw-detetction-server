@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
 from redis.exceptions import ResponseError
 
 from app.config.settings import Settings
@@ -244,11 +245,22 @@ class RedisVideoQueueRepository:
             updated_at=now,
         )
         payload = _job_to_mapping(job)
-        async with self._redis.pipeline(transaction=True) as pipe:
-            await pipe.hset(job_key, mapping=payload)
-            await pipe.set(unique_key, job.job_id)
-            await pipe.xadd(self._settings.queue_stream_name, {"job_id": job.job_id, "payload": json.dumps(payload)})
-            await pipe.execute()
+        if isinstance(self._redis, RedisCluster):
+            await self._redis.hset(job_key, mapping=payload)
+            await self._redis.set(unique_key, job.job_id)
+            await self._redis.xadd(
+                self._settings.queue_stream_name,
+                {"job_id": job.job_id, "payload": json.dumps(payload)},
+            )
+        else:
+            async with self._redis.pipeline(transaction=True) as pipe:
+                await pipe.hset(job_key, mapping=payload)
+                await pipe.set(unique_key, job.job_id)
+                await pipe.xadd(
+                    self._settings.queue_stream_name,
+                    {"job_id": job.job_id, "payload": json.dumps(payload)},
+                )
+                await pipe.execute()
         return EnqueueResult(job=job, enqueued=True)
 
     async def get_job_by_video_id(self, video_id: str) -> VideoJob | None:
@@ -313,16 +325,11 @@ class RedisVideoQueueRepository:
         count: int,
         block_ms: int,
     ) -> list[QueuedVideoJobMessage]:
-        streams = await self._redis.xreadgroup(
-            self._settings.queue_group_name,
-            consumer_name,
-            {self._settings.queue_stream_name: ">"},
-            count=count,
-            block=block_ms,
-        )
+        streams = await self._xreadgroup(consumer_name=consumer_name, count=count, block_ms=block_ms)
         messages: list[QueuedVideoJobMessage] = []
         for _, stream_messages in streams:
-            for message_id, payload in stream_messages:
+            for message_id, raw_payload in stream_messages:
+                payload = _stream_payload_to_mapping(raw_payload)
                 job_id = payload.get("job_id")
                 if not job_id:
                     job_id = _json_payload(payload).get("job_id", "")
@@ -334,6 +341,44 @@ class RedisVideoQueueRepository:
                     )
                 )
         return messages
+
+    async def _xreadgroup(self, *, consumer_name: str, count: int, block_ms: int):  # type: ignore[no-untyped-def]
+        if not isinstance(self._redis, RedisCluster):
+            return await self._redis.xreadgroup(
+                self._settings.queue_group_name,
+                consumer_name,
+                {self._settings.queue_stream_name: ">"},
+                count=count,
+                block=block_ms,
+            )
+
+        stream_name = self._settings.queue_stream_name
+        target_node = self._redis.get_node_from_key(stream_name)
+        if target_node is None:
+            raise RuntimeError(f"could not resolve Redis cluster node for stream {stream_name}")
+
+        connection = target_node.acquire_connection()
+        await target_node.disconnect_if_needed(connection)
+        await connection.send_packed_command(
+            connection.pack_command(
+                "XREADGROUP",
+                "GROUP",
+                self._settings.queue_group_name,
+                consumer_name,
+                "COUNT",
+                count,
+                "BLOCK",
+                block_ms,
+                "STREAMS",
+                stream_name,
+                ">",
+            )
+        )
+        try:
+            return await connection.read_response()
+        finally:
+            await target_node.disconnect_if_needed(connection)
+            target_node.release(connection)
 
     async def ack_video_job_message(self, message_id: str) -> None:
         await self._redis.xack(
@@ -391,6 +436,17 @@ def _json_payload(payload: dict[str, str]) -> dict[str, str]:
     if not isinstance(decoded, dict):
         return {}
     return {str(key): str(value) for key, value in decoded.items()}
+
+
+def _stream_payload_to_mapping(payload: object) -> dict[str, str]:
+    if isinstance(payload, dict):
+        return {str(key): str(value) for key, value in payload.items()}
+    if not isinstance(payload, list | tuple):
+        return {}
+    return {
+        str(key): str(value)
+        for key, value in zip(payload[0::2], payload[1::2], strict=False)
+    }
 
 
 def _job_to_mapping(job: VideoJob) -> dict[str, str]:

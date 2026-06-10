@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import Protocol
 
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
@@ -42,11 +43,17 @@ class PostgresVideoJobStateRepository:
             return await VideoJobRepository(session).get_by_job_id(job_id)
 
     async def mark_processing(self, job: VideoJob) -> None:
+        inserted_job = replace(
+            job,
+            status=VideoJobStatus.QUEUED,
+            attempts=max(job.attempts - 1, 0),
+            started_at=None,
+        )
         async with self._session_factory() as session:
             async with session.begin():
                 await session.execute(
                     postgres_insert(nsfw_video_jobs)
-                    .values(**video_job_to_row(job))
+                    .values(**video_job_to_row(inserted_job))
                     .on_conflict_do_nothing()
                 )
                 await VideoJobRepository(session).mark_processing(job.job_id)
